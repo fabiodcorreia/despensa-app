@@ -269,6 +269,13 @@ tags
 ### Custom ignores
 # build folder
 bin/
+  
 # sqlite database files
 *.db
+
+# js and css dist folder
+public/dist
+
+
+
 # End of https://www.toptal.com/developers/gitignore/api/go,visualstudiocode,vim,macos,linux,node,git
