@@ -276,6 +276,10 @@ bin/
 # js and css dist folder
 public/dist
 
+# templ compiled and watch files
+*_templ.go
+*_templ.txt
+
 
 
 # End of https://www.toptal.com/developers/gitignore/api/go,visualstudiocode,vim,macos,linux,node,git

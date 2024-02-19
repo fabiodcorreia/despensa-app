@@ -40,7 +40,7 @@ func (s *Store) Connect() error {
 	if err := db.Ping(); err != nil {
 		return fmt.Errorf("store connection check fail: %w", err)
 	}
-
+	s.db = db
 	return nil
 }
 

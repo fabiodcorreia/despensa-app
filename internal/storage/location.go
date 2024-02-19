@@ -4,13 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/fabiodcorreia/despensa-app/internal/model"
+	"github.com/fabiodcorreia/despensa-app/internal/models"
 )
 
 //TODO: Replace the Exec and Query with Prepared Statment
 
-func (s *Store) GetLocationById(id string) (model.Location, error) {
-	var location model.Location
+func (s *Store) GetLocationById(id string) (models.Location, error) {
+	var location models.Location
 
 	row := s.db.QueryRow("SELECT id, name FROM location WHERE id = ?", id)
 	if err := row.Scan(&location.Id, &location.Name); err != nil {
@@ -22,17 +22,47 @@ func (s *Store) GetLocationById(id string) (model.Location, error) {
 
 	return location, nil
 }
+func (s *Store) FilterLocations(filter string) ([]models.Location, error) {
+	var locations []models.Location
 
-func (s *Store) GetAllLocations() ([]model.Location, error) {
-	var locations []model.Location
+	// Prepare the statement with a placeholder for the filter value
+	stmt, err := s.db.Prepare("SELECT id, name FROM location WHERE name LIKE ? ORDER BY name")
+	if err != nil {
+		return nil, fmt.Errorf("get filter locations prepare statement fail: %w", err)
+	}
+	defer stmt.Close()
 
+	// Execute the statement with the actual filter value
+	rows, err := stmt.Query("%" + filter + "%") // Apply wildcards for LIKE comparison
+	if err != nil {
+		return nil, fmt.Errorf("get filter locations run query fail: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var loc models.Location
+		if err := rows.Scan(&loc.Id, &loc.Name); err != nil {
+			return nil, fmt.Errorf("get filter locations scan result fail: %w", err)
+		}
+		locations = append(locations, loc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get filter locations rows error: %w", err)
+	}
+
+	return locations, nil
+}
+
+func (s *Store) GetAllLocations() ([]models.Location, error) {
+	var locations []models.Location
 	rows, err := s.db.Query("SELECT id, name FROM location ORDER BY name")
 	if err != nil {
 		return nil, fmt.Errorf("get all locations: %v", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var loc model.Location
+		var loc models.Location
 		if err := rows.Scan(&loc.Id, &loc.Name); err != nil {
 			return nil, fmt.Errorf("get all locations: %v", err)
 		}
@@ -46,7 +76,7 @@ func (s *Store) GetAllLocations() ([]model.Location, error) {
 	return locations, nil
 }
 
-func (s *Store) CreateLocation(loc model.Location) error {
+func (s *Store) CreateLocation(loc models.Location) error {
 	result, err := s.db.Exec("INSERT INTO location VALUES (?,?)", loc.Id, loc.Name)
 	if err != nil {
 		return fmt.Errorf("create location: %v", err)
@@ -64,7 +94,7 @@ func (s *Store) CreateLocation(loc model.Location) error {
 	return nil
 }
 
-func (s *Store) UpdateLocation(loc model.Location) error {
+func (s *Store) UpdateLocation(loc models.Location) error {
 	result, err := s.db.Exec("UPDATE location SET name = ? WHERE id = ?", loc.Name, loc.Id)
 	if err != nil {
 		return fmt.Errorf("update location: %v", err)
