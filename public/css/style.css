@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/*
+@layer components {
+ .htmx-indicator {
+    @apply opacity-0 transition-opacity 
+  } 
+
+  .htmx-request .htmx-indicator {
+    @apply opacity-100
+  }
+
+  .htmx-request.htmx-indicator {
+    @apply opacity-100
+  }
+}
+*/

@@ -14,12 +14,12 @@ tmp_dir = "bin"
     "database"
   ]
   exclude_file = [""]
-  exclude_regex = ["_test.go", "_templ.go"]
+  exclude_regex = ["_test.go" ]
   exclude_unchanged = false
   follow_symlink = false
   full_bin = ""
   include_dir = []
-  include_ext = ["go","templ", "css", "js", "jpeg", "jpg", "gif", "png", "svg", "webp", "ico"]
+  include_ext = ["go", "css", "js", "jpeg", "jpg", "gif", "png", "svg", "webp", "ico", "txt"]
   include_file = []
   kill_delay = "0s"
   log = "build-errors.log"
