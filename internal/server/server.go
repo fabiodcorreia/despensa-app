@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fabiodcorreia/despensa-app/internal/handlers"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
@@ -28,8 +29,12 @@ func NewServer() *Server {
 	svr.Logger.SetLevel(log.INFO)
 	svr.Logger.SetPrefix("despensa")
 	svr.Use(middleware.Secure())
-	// svr.Use(middleware.Recover())
+	svr.Use(middleware.Recover())
+	svr.Use(middleware.Logger())
+	svr.Pre(middleware.RemoveTrailingSlash())
+	// https://echo.labstack.com/docs/middleware/cors
 
+	svr.HTTPErrorHandler = handlers.HTTPErrorHandler
 	return &Server{
 		ctx,
 		stop,

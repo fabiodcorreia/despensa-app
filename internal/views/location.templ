@@ -1,0 +1,34 @@
+package views
+
+import "github.com/fabiodcorreia/despensa-app/internal/models"
+import "github.com/fabiodcorreia/despensa-app/internal/views/components"
+import "fmt"
+
+templ LocationView(location models.Location, items []models.Item) {
+	@components.BaseLayout("Despensa - " + location.Name) {
+		<div class="prose w-full">
+			<h1>{ location.Name }</h1>
+			<div class="w-full">
+				<h2>Products</h2>
+				<div class="overflow-x-auto w-full">
+					<table class="table table-zebra">
+						<thead>
+							<tr>
+								<th>Name</th>
+								<th>Quantity</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, item := range items {
+								<tr>
+									<th>{ item.Name }</th>
+									<td>{ fmt.Sprintf("%d", item.Quantity) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	}
+}

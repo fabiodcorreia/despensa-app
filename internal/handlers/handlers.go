@@ -11,6 +11,10 @@ func render(ctx echo.Context, comp templ.Component) error {
 	return renderWithStatusCode(ctx, comp, http.StatusOK)
 }
 
+func renderNotFound(ctx echo.Context) error {
+	return renderWithStatusCode(ctx, templ.NopComponent, http.StatusNotFound)
+}
+
 func renderEmpty(ctx echo.Context) error {
 	// I would like to use 204 No Content but HTMX only works with 200 as far I can find
 	return renderWithStatusCode(ctx, templ.NopComponent, http.StatusOK)

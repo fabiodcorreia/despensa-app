@@ -38,7 +38,8 @@ build/dev: public/dist/js/htmx.min.js
 watch:
 	templ generate --watch & \
 	npx tailwindcss -i ./public/css/style.css -o ./public/dist/css/style.css --watch & \
- 	trap 'kill 0' SIGINT; \
+ 	# trap 'kill 0' SIGINT; \
+  trap 'echo " Stopping..."; jobs -r | awk "{print $1}" | xargs kill -SIGTERM; sleep 5; echo "Gracefully exited."' SIGINT
 	air
 
 ## build: build in release mode
@@ -118,15 +119,17 @@ clean:
 
 MIGRATION_NAME=
 
+## migration/create: creates a new migration files with the provided MIGRATION_NAME
 .PHONY: migration/create
 migration/create:
 	migrate create -ext sql -dir database/migration/ -seq $(MIGRATION_NAME)
 
+## migration/up: runs all the up migrations
+.PHONY: migration/up
 migration/up:
 	migrate -path database/migration/ -database "sqlite://despensa.db" -verbose up
 
+## migration/down: runs all the down migrations
+.PHONY: migration/down
 migration/down:
 	migrate -path database/migration/ -database "sqlite://despensa.db" -verbose down
-
-migration/version:
-	migrate 
