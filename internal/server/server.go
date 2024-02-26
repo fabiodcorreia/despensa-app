@@ -11,7 +11,6 @@ import (
 
 	"github.com/fabiodcorreia/despensa-app/internal/routes"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
 type Server struct {
@@ -20,27 +19,23 @@ type Server struct {
 	engine    *echo.Echo
 }
 
-func NewServer(ctx context.Context) *Server {
+func NewServer(ctx context.Context, options ...ServerOption) *Server {
 	engine := echo.New()
 	engine.HideBanner = true
 	engine.HidePort = true
 
-	//TODO: Setup Logger
-
 	serverCtx, stopCtx := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
-	return &Server{
+	s := &Server{
 		serverCtx,
 		stopCtx,
 		engine,
 	}
-}
 
-func (s *Server) WithMiddleware() {
-	s.engine.Use(
-		middleware.Secure(),
-		middleware.Recover(),
-		middleware.RemoveTrailingSlash(),
-	)
+	for _, opt := range options {
+		opt(s)
+	}
+
+	return s
 }
 
 func (s *Server) AddPublic(assets fs.FS) {

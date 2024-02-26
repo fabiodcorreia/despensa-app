@@ -50,12 +50,15 @@ func run(ctx context.Context) error {
 	defer store.Disconnect()
 	slog.Info("Store connected", "database", server.GetDatabaseFile())
 
-	// s.AddRoutes(handlers.NewSearch(services.NewSearch(store)))
-	// s.AddRoutes(handlers.NewLocation(services.NewLocation(store)))
-
 	// https://github.com/samber/slog-echo/tree/main
-	s := server.NewServer(ctx)
-	s.WithMiddleware()
+	// s := server.NewServer(ctx)
+	s := server.NewServer(
+		ctx,
+		server.WithSecure(),
+		server.WithRecover(),
+		server.WithRemoveTrailingSlash(),
+		server.WithLogger(),
+	)
 	s.AddPublic(public)
 
 	homeRoutes := routes.Home{}
