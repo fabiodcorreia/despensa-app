@@ -273,8 +273,8 @@ bin/
 # sqlite database files
 *.db
 
-# js and css dist folder
-public/dist
+# public folder
+public/
 
 # templ compiled and watch files
 *_templ.go

@@ -1,17 +1,21 @@
 # Define variables
-GO_VERSION = 1.22.0
-PROJECT_NAME = despensa-app
+GO_VERSION 			= 1.22.0
+PROJECT_NAME 		= Despensa
+BINARY_NAME 		= despensa
+MIGRATION_NAME  =  
 
 # Define directories
-GOPATH = $(shell go env GOPATH)
-SRC_DIR = .
-BIN_DIR = ./bin
-BINARY_NAME = despensa
+GOPATH 					= $(shell go env GOPATH)
+SRC_DIR       	= .
+BIN_DIR 				= $(SRC_DIR)/bin
+ASSETS_DIR 			= $(SRC_DIR)/assets
+PUBLIC_DIR 			= $(SRC_DIR)/public
+NODE_DIR 				= $(SRC_DIR)/node_modules
 
 # Define tools and flags
-
-
-
+SERVER_ADDRESS	= "127.0.0.1"
+SERVER_PORT 		= 8080
+DB_FILE 				= $(BIN_DIR)/$(BINARY_NAME).db
 
 ## help: print this help message
 .PHONY: help
@@ -20,34 +24,92 @@ help:
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
 
-# ####################
-# BUILD
-# ####################
+# #################### BUILD #################### #
 
-# copy the htmx.min.js file to dist if not there or changed the source
-public/dist/js/htmx.min.js: node_modules/htmx.org/dist/htmx.min.js
-	cp -f ./node_modules/htmx.org/dist/htmx.min.js ./public/dist/js/htmx.min.js
+public/favicon: assets/favicon
+	mkdir -p $(PUBLIC_DIR)/favicon
+	cp -f $(ASSETS_DIR)/favicon/* $(PUBLIC_DIR)/favicon
+	mv $(PUBLIC_DIR)/favicon/favicon.ico $(PUBLIC_DIR)/favicon.ico
+	@sed -i '' 's/"name": ""/"name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
+	@sed -i '' 's/"short-name": ""/"ahort-name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
 
-# build in development mode (used by air / make watch)
+#  create public/js folder if not exists
+public/js:
+	mkdir -p $(PUBLIC_DIR)/js
+
+#  create public/css folder if not exists
+public/css:
+	mkdir -p $(PUBLIC_DIR)/css
+
+#  copy the htmx.min.js file to dist if not there or changed the source
+public/js/htmx.min.js: public/js node_modules/htmx.org/dist/htmx.min.js
+	cp -f $(NODE_DIR)/htmx.org/dist/htmx.min.js $(PUBLIC_DIR)/js/htmx.min.js
+
+public/css/style.min.css: public/css assets/css/style.css
+	npx tailwindcss -i $(ASSETS_DIR)/css/style.css -o $(PUBLIC_DIR)/css/style.min.css --minify
+
+#  build in development mode (user by make watch)
 .PHONY: build/dev
-build/dev: public/dist/js/htmx.min.js 
+build/dev: public/js/htmx.min.js public/favicon
 	go build -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X main.build=dev" ${SRC_DIR} 
 
-## watch: run templ genrate in watch mode and start the air app reload
+
+
+## watch: run templ, tailwindcss in watch mode and air app reload
 .PHONY: watch
-watch:
-	templ generate --watch & \
-	npx tailwindcss -i ./public/css/style.css -o ./public/dist/css/style.css --watch & \
- 	# trap 'kill 0' SIGINT; \
+watch: public/css 
+	echo "for some reason needs this here otherwise the first command exits" & \
+	ADDRESS=$(SERVER_ADDRESS) PORT=$(SERVER_PORT) DATABASE_FILE=$(DB_FILE) air & \
+	npx tailwindcss -i $(ASSETS_DIR)/css/style.css -o $(PUBLIC_DIR)/css/style.min.css --watch & \
   trap 'echo " Stopping..."; jobs -r | awk "{print $1}" | xargs kill -SIGTERM; sleep 5; echo "Gracefully exited."' SIGINT
-	air
+	sleep 3
+	templ generate --watch --proxy=http://$(SERVER_ADDRESS):$(SERVER_PORT) -path=$(SRC_DIR)/internal/views
+
+
 
 ## build: build in release mode
+#  https://gophercoding.com/reduce-go-binary-size/
 .PHONY: build
-build: public/dist/js/htmx.min.js
-	templ generate
-	npx tailwindcss -i ./public/css/style.css -o ./public/dist/css/style.css --minify
-	go build -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X main.build=1.0.0" ${SRC_DIR} 
+build: public/js/htmx.min.js public/css/style.min.css
+	templ generate -path=$(SRC_DIR)/internal/views
+	go build -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X main.version=1.0.0 -X main.name=$(PROJECT_NAME)-w -s" ${SRC_DIR} 
+
+
+## clean: delete all the generated resources
+.PHONY: clean
+clean:
+	@echo "Cleaning up..."
+	rm -fr ${BIN_DIR}/*
+	rm -fr ${PUBLIC_DIR}/js
+	rm -fr ${PUBLIC_DIR}/css
+	rm -fr ${PUBLIC_DIR}/favicon
+	rm -fr ${PUBLIC_DIR}/favicon.ico
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## run: run the application after make a release build
 .PHONY: run
@@ -98,10 +160,12 @@ test/cover:
 .PHONY: install-tools
 install-tools:
 	@echo "Installing tools..."
-	# go get -u github.com/golang-migrate/migrate/v4/...
-	# go get -u github.com/machielw/templ/v3/...
-	# go install -tags 'sqlite' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
+	go install github.com/a-h/templ/cmd/templ@latest
+	go install github.com/cosmtrek/air@latest
+	go install github.com/boyter/dcd@latest
+	go install -tags 'sqlite' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	npm install -g tailwindcss
+	npm install
 
 
 ## push: push changes to the remote Git repository
@@ -109,15 +173,8 @@ install-tools:
 push: tidy audit no-dirty
 	git push
 
-## clean: delete all the generated resources
-.PHONY: clean
-clean:
-	@echo "Cleaning up..."
-	rm -rf ${BIN_DIR}/*
-	rm -fr despensa.db
 
 
-MIGRATION_NAME=
 
 ## migration/create: creates a new migration files with the provided MIGRATION_NAME
 .PHONY: migration/create
@@ -133,3 +190,4 @@ migration/up:
 .PHONY: migration/down
 migration/down:
 	migrate -path database/migration/ -database "sqlite://despensa.db" -verbose down
+

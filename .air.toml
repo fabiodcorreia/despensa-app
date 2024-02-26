@@ -9,11 +9,10 @@ tmp_dir = "bin"
   delay = 1000
   exclude_dir = [
     "bin", 
-    "public/dist", 
+    "database",
     "node_modules", 
-    "database"
   ]
-  exclude_file = [""]
+  exclude_file = ["Makefile", ".gitignore", "README.md"]
   exclude_regex = ["_test.go" ]
   exclude_unchanged = false
   follow_symlink = false
@@ -21,7 +20,7 @@ tmp_dir = "bin"
   include_dir = []
   include_ext = ["go", "css", "js", "jpeg", "jpg", "gif", "png", "svg", "webp", "ico", "txt"]
   include_file = []
-  kill_delay = "0s"
+  kill_delay = "5s"
   log = "build-errors.log"
   poll = false
   poll_interval = 0
@@ -29,7 +28,7 @@ tmp_dir = "bin"
   pre_cmd = []
   rerun = false
   rerun_delay = 500
-  send_interrupt = false
+  send_interrupt = true
   stop_on_error = true
 
 [color]
