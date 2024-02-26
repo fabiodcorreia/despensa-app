@@ -2,8 +2,8 @@ package storage
 
 import (
 	"database/sql"
-	"embed"
 	"fmt"
+	"io/fs"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
@@ -23,12 +23,24 @@ func NewStore(databaseFile string) *Store {
 	}
 }
 
-func NewStoreWithMigrations(databaseFile string, migrations embed.FS) (*Store, error) {
-	s := NewStore(databaseFile)
-	if err := s.runMigrations(migrations); err != nil {
-		return nil, err
+func NewStoreWithMigrations(databaseFile string, migrations fs.FS) (*Store, error) {
+	d, err := iofs.New(migrations, "database/migration")
+	if err != nil {
+		return nil, fmt.Errorf("store with migrations - loading migration files: %w", err)
 	}
-	return s, nil
+
+	m, err := migrate.NewWithSourceInstance("iofs", d, "sqlite://"+databaseFile)
+	if err != nil {
+		return nil, fmt.Errorf("store with migrations - connecting with db: %w", err)
+	}
+
+	err = m.Up()
+	if err != nil {
+		if err != migrate.ErrNoChange {
+			return nil, fmt.Errorf("store with migrations - running migrations: %w", err)
+		}
+	}
+	return NewStore(databaseFile), nil
 }
 
 func (s *Store) Connect() error {
@@ -48,26 +60,5 @@ func (s *Store) Disconnect() error {
 	if err := s.db.Close(); err != nil {
 		return fmt.Errorf("store disconnect fail: %w", err)
 	}
-	return nil
-}
-
-func (s *Store) runMigrations(migrations embed.FS) error {
-	d, err := iofs.New(migrations, "database/migration")
-	if err != nil {
-		return fmt.Errorf("store with migrations fail loading migration files: %w", err)
-	}
-
-	m, err := migrate.NewWithSourceInstance("iofs", d, fmt.Sprintf("sqlite://%s", s.file))
-	if err != nil {
-		return fmt.Errorf("store with migrations fail connecting with db: %w", err)
-	}
-
-	err = m.Up()
-	if err != nil {
-		if err != migrate.ErrNoChange {
-			return fmt.Errorf("store with migrations fail running migrations: %w", err)
-		}
-	}
-
 	return nil
 }

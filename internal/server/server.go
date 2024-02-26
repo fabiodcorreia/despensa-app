@@ -3,69 +3,69 @@ package server
 import (
 	"context"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/fabiodcorreia/despensa-app/internal/handlers"
+	"github.com/fabiodcorreia/despensa-app/internal/routes"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
 )
 
 type Server struct {
-	ctx  context.Context
-	stop context.CancelFunc
-	svr  *echo.Echo
+	serverCtx context.Context
+	stopCtx   context.CancelFunc
+	engine    *echo.Echo
 }
 
-func NewServer() *Server {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	svr := echo.New()
-	svr.HideBanner = true
-	svr.HidePort = true
+func NewServer(ctx context.Context) *Server {
+	engine := echo.New()
+	engine.HideBanner = true
+	engine.HidePort = true
 
-	svr.Logger.SetLevel(log.INFO)
-	svr.Logger.SetPrefix("despensa")
-	svr.Use(middleware.Secure())
-	svr.Use(middleware.Recover())
-	svr.Use(middleware.Logger())
-	svr.Pre(middleware.RemoveTrailingSlash())
-	// https://echo.labstack.com/docs/middleware/cors
+	//TODO: Setup Logger
 
-	svr.HTTPErrorHandler = handlers.HTTPErrorHandler
+	serverCtx, stopCtx := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	return &Server{
-		ctx,
-		stop,
-		svr,
+		serverCtx,
+		stopCtx,
+		engine,
 	}
 }
 
-func (s *Server) Log(message string) {
-	s.svr.Logger.Info(message)
+func (s *Server) WithMiddleware() {
+	s.engine.Use(
+		middleware.Secure(),
+		middleware.Recover(),
+		middleware.RemoveTrailingSlash(),
+	)
 }
 
-// Enable the public folder for static content
-func (s *Server) WithPublic(public fs.FS) {
-	s.svr.StaticFS("/dist", echo.MustSubFS(public, "public/dist"))
+func (s *Server) AddPublic(assets fs.FS) {
+	s.engine.StaticFS("/", echo.MustSubFS(assets, "public"))
 }
 
-func (s *Server) AddRoute(method string, path string, handler echo.HandlerFunc) {
-	s.svr.Add(method, path, handler)
+func (s *Server) AddRoutes(routes ...routes.Route) {
+	for _, r := range routes {
+		s.engine.Add(r.Method, r.Path, r.Handle)
+		slog.Info("Added route", "method", r.Method, "path", r.Path)
+	}
 }
 
-// Run with go routine
+// Start the server and should be called in with go routine
+//
+// go s.Start("127.0.0.1:8080")
 func (s *Server) Start(bindAddr string) {
-	if err := s.svr.Start(bindAddr); err != http.ErrServerClosed {
-		s.svr.Logger.Error("server start fail with error: " + err.Error())
-		s.stop() // If error on start call stop and exit
+	if err := s.engine.Start(bindAddr); err != http.ErrServerClosed {
+		// s.Log().Errorf("server start : %v", err)
+		slog.Error("Server starting", err)
+		s.stopCtx() // If error on start call stop and exit
 	}
 }
 
 // Wait until a termination signal is received and then shutdown the server.
-//
-// The shutdown will have a timeout of 10s.
 func (s *Server) WaitAndTerminate() error {
 	s.wait()
 	return s.terminate()
@@ -73,14 +73,14 @@ func (s *Server) WaitAndTerminate() error {
 
 // Wait will wait until a interrupt signal is received
 func (s *Server) wait() {
-	defer s.stop()
+	defer s.stopCtx()
 	// Wait for interrupt signal to gracefully shutdown the server.
-	<-s.ctx.Done()
+	<-s.serverCtx.Done()
 }
 
 // Stop will tell the server to shutdown with a 10s timeout
 func (s *Server) terminate() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return s.svr.Shutdown(ctx)
+	return s.engine.Shutdown(ctx)
 }

@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"embed"
-	"net/http"
+	"log/slog"
+	"net"
+	"os"
 
-	"github.com/fabiodcorreia/despensa-app/internal/handlers"
+	"github.com/fabiodcorreia/despensa-app/internal/routes"
 	"github.com/fabiodcorreia/despensa-app/internal/server"
-	"github.com/fabiodcorreia/despensa-app/internal/services"
 	"github.com/fabiodcorreia/despensa-app/internal/storage"
 )
+
+var name = "app"
 
 // default version placeholder
 var version = "dev"
@@ -16,50 +20,49 @@ var version = "dev"
 //go:embed database/migration/*.sql
 var migrations embed.FS
 
-//go:embed public/dist
+//go:embed public
 var public embed.FS
 
 func main() {
+	ctx := context.Background()
+	slog.Info("Starting application", "name", name, "version", version)
 
-	s := server.NewServer()
-	s.Log("Despensa server version " + version)
-
-	store, err := storage.NewStoreWithMigrations("despensa.db", migrations)
-	if err != nil {
-		s.Log(err.Error())
-		panic(err)
+	if err := run(ctx); err != nil {
+		slog.Error("App exited with error", err)
+		os.Exit(1)
 	}
-
-	if err := store.Connect(); err != nil {
-		s.Log(err.Error())
-		panic(err)
-	}
-	defer store.Disconnect()
-
-	s.WithPublic(public)
-
-	searchService := services.NewSearch(store)
-	searchHandler := handlers.NewSearch(searchService)
-	s.AddRoute(http.MethodGet, "/search", searchHandler.View)
-	s.AddRoute(http.MethodPost, "/search", searchHandler.Search)
-
-	locationService := services.NewLocation(store)
-	locationHandler := handlers.NewLocation(locationService)
-
-	s.AddRoute(http.MethodGet, "/location/:id", locationHandler.View)
-
-	go s.Start("127.0.0.1:8080")
-	s.Log("server ready at http://localhost:8080")
-	s.WaitAndTerminate()
-	s.Log("server shutdown completed")
+	slog.Info("App exited with success")
 }
 
-/*
-https://templ.guide/project-structure/project-structure
-1. Setup the store
-  - Will handle the storage and retrieval of the data
-2. Setup the services with the store
-  - Will handle the business logic and coordination with the store
-3. Setup the handler with the service
-  - Will receive the http request, calls the service and renders the component
-*/
+func run(ctx context.Context) error {
+	store, err := storage.NewStoreWithMigrations(
+		server.GetDatabaseFile(),
+		migrations,
+	)
+	if err != nil {
+		return err
+	}
+	slog.Info("Store initialized and migrations executed")
+
+	if err = store.Connect(); err != nil {
+		return err
+	}
+	defer store.Disconnect()
+	slog.Info("Store connected", "database", server.GetDatabaseFile())
+
+	// s.AddRoutes(handlers.NewSearch(services.NewSearch(store)))
+	// s.AddRoutes(handlers.NewLocation(services.NewLocation(store)))
+
+	// https://github.com/samber/slog-echo/tree/main
+	s := server.NewServer(ctx)
+	s.WithMiddleware()
+	s.AddPublic(public)
+
+	homeRoutes := routes.Home{}
+	s.AddRoutes(homeRoutes.Routes()...)
+
+	go s.Start(net.JoinHostPort(server.GetAddress(), server.GetPort()))
+	slog.Info("Server started", "address", server.GetAddress(), "port", server.GetPort())
+
+	return s.WaitAndTerminate()
+}
