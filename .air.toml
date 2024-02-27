@@ -5,7 +5,7 @@ tmp_dir = "bin"
 [build]
   args_bin = []
   bin = "./bin/despensa"
-  cmd = "make build/dev"
+  cmd = "make dev/build"
   delay = 1000
   exclude_dir = [
     "bin", 
