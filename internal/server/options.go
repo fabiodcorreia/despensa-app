@@ -3,6 +3,8 @@ package server
 import (
 	"log/slog"
 
+	"github.com/gorilla/sessions"
+	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4/middleware"
 	slogecho "github.com/samber/slog-echo"
 )
@@ -24,6 +26,12 @@ func WithRecover() ServerOption {
 func WithRemoveTrailingSlash() ServerOption {
 	return func(s *Server) {
 		s.engine.Use(middleware.RemoveTrailingSlash())
+	}
+}
+
+func WithSession() ServerOption {
+	return func(s *Server) {
+		s.engine.Use(session.Middleware(sessions.NewCookieStore(GetSessionKey())))
 	}
 }
 

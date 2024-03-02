@@ -42,8 +42,8 @@ func (s *Server) AddPublic(assets fs.FS) {
 	s.engine.StaticFS("/", echo.MustSubFS(assets, "public"))
 }
 
-func (s *Server) AddRoutes(routes ...routes.Route) {
-	for _, r := range routes {
+func (s *Server) AddRoutes(routes routes.Routes) {
+	for _, r := range routes.Routes() {
 		s.engine.Add(r.Method, r.Path, r.Handle)
 		slog.Info("Added route", "method", r.Method, "path", r.Path)
 	}
@@ -60,7 +60,8 @@ func (s *Server) Start(bindAddr string) {
 	}
 }
 
-// Wait until a termination signal is received and then shutdown the server.
+// WaitAndTerminate will wait until a termination signal is received and
+// then shutdown the server.
 func (s *Server) WaitAndTerminate() error {
 	s.wait()
 	return s.terminate()
@@ -75,7 +76,7 @@ func (s *Server) wait() {
 
 // Stop will tell the server to shutdown with a 10s timeout
 func (s *Server) terminate() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(s.serverCtx, 30*time.Second)
 	defer cancel()
 	return s.engine.Shutdown(ctx)
 }
