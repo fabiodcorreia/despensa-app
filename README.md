@@ -1,6 +1,5 @@
 # Despensa App
 
-
 ## Project Structure
 
 - public - Assets that don't need server side processing.
@@ -24,3 +23,10 @@
 - build: Builds the application in production mode including Tailwindcss and Templ
 - run: Runs the production build
 
+
+## Developent
+
+- Clone
+- make tools
+- npm install
+- make watch

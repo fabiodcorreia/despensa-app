@@ -280,6 +280,7 @@ public/
 *_templ.go
 *_templ.txt
 
-
+# mocks are generate with `make mocks`
+test/mocks/
 
 # End of https://www.toptal.com/developers/gitignore/api/go,visualstudiocode,vim,macos,linux,node,git

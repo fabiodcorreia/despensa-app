@@ -52,11 +52,16 @@ public/css/style.min.css: public/css assets/css/style.css
 dev/build: public/js/htmx.min.js public/favicon
 	go build -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X main.build=dev" ${SRC_DIR} 
 
+## dev/decisions:build printing the build optimization decisions
+.PHONY: analyse/escape
+analyse/escape: public/js/htmx.min.js public/favicon
+	go build -gcflags=-m -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X main.build=dev" ${SRC_DIR} 2>&1 | grep -vE "inlin|not escape"
+
 ## dev/run: run templ, tailwindcss in watch mode and air app reload
 .PHONY: dev/run
 dev/run: public/css 
 	echo "for some reason needs this here otherwise the first command exits" & \
-	ADDRESS=$(SERVER_ADDRESS) PORT=$(SERVER_PORT) DATABASE_FILE=$(DB_FILE) air & \
+	ADDRESS=$(SERVER_ADDRESS) PORT=$(SERVER_PORT) DATABASE_FILE=$(DB_FILE) air --build.bin="${BIN_DIR}/${BINARY_NAME}"& \
 	npx tailwindcss -i $(ASSETS_DIR)/css/style.css -o $(PUBLIC_DIR)/css/style.min.css --watch & \
   trap 'echo " Stopping..."; jobs -r | awk "{print $1}" | xargs kill -SIGTERM; sleep 5; echo "Gracefully exited."' SIGINT
 	sleep 3
@@ -85,9 +90,16 @@ dev/update:
 ## dev/tools: install tools required to build the project
 .PHONY: dev/tools
 dev/tools:
+	go install golang.org/x/tools/cmd/deadcode@latest
 	go install github.com/a-h/templ/cmd/templ@latest
 	go install github.com/cosmtrek/air@latest
 	go install github.com/boyter/dcd@latest
+	go install github.com/alexkohler/prealloc@latest
+	go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
+	go install github.com/jgautheron/goconst/cmd/goconst@latest
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install go.uber.org/mock/mockgen@latest
 	go install -tags 'sqlite' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 
@@ -131,23 +143,29 @@ tidy:
 .PHONY: audit
 audit:
 	go mod verify
-	go vet ./...
-	# go run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
-	# go run golang.org/x/vuln/cmd/govulncheck@latest ./...
-	# go test -race -buildvcs -vet=off ./...
+	go vet --all .
+	shadow -strict ./...
+	prealloc -forloops -set_exit_status -simple -rangeloops ./...
+	goconst ./internal/... main.go
+	staticcheck -checks=all,-ST1000,-U1000 ./...
+	govulncheck ./...
+	go test -race -vet=off ./...
 
 
-# test: run all tests
-# .PHONY: test
-# test:
-# 	go test -v -race -buildvcs ./...
+.PHONY: test
+test: test/mocks
+	go test -v -race ./...
 
 # test/cover: run all tests and display coverage
-# .PHONY: test/cover
-# test/cover:
-# 	go test -v -race -buildvcs -coverprofile=/tmp/coverage.out ./...
-# 	go tool cover -html=/tmp/coverage.out
+.PHONY: test/cover
+test/cover: test/mocks
+	go test -v -race -coverprofile=/tmp/coverage.out ./...
+	go tool cover -html=/tmp/coverage.out
 
+## test/mocks: generate mocks for testing
+test/mocks: internal/storage/location.go internal/storage/item.go
+	mockgen -source=internal/storage/location.go -destination=test/mocks/location_store.go -package=mocks
+	mockgen -source=internal/storage/item.go -destination=test/mocks/item_store.go -package=mocks
 
 
 
@@ -170,10 +188,10 @@ migrate/create:
 ## migrate/up: runs all the up migrations
 .PHONY: migrate/up
 migrate/up:
-	migrate -path database/migration/ -database "sqlite://despensa.db" -verbose up
+	migrate -path database/migration/ -database "sqlite://$(DB_FILE)" -verbose up
 
 ## migrate/down: runs all the down migrations
 .PHONY: migrate/down
 migrate/down:
-	migrate -path database/migration/ -database "sqlite://despensa.db" -verbose down
+	migrate -path database/migration/ -database "sqlite://$(DB_FILE)" -verbose down
 
