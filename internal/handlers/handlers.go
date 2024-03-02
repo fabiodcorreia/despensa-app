@@ -5,7 +5,21 @@ import (
 
 	"github.com/a-h/templ"
 	"github.com/labstack/echo/v4"
+	"github.com/microcosm-cc/bluemonday"
 )
+
+const KeyID = `id`
+const KeyName = `name`
+
+var policy = bluemonday.StrictPolicy()
+
+func getParam(ctx echo.Context, name string) string {
+	return policy.Sanitize(ctx.Param(name))
+}
+
+func getFormValue(ctx echo.Context, name string) string {
+	return policy.Sanitize(ctx.FormValue(name))
+}
 
 func render(ctx echo.Context, comp templ.Component) error {
 	return renderWithStatusCode(ctx, comp, http.StatusOK)
@@ -16,8 +30,7 @@ func renderNotFound(ctx echo.Context) error {
 }
 
 func renderEmpty(ctx echo.Context) error {
-	// I would like to use 204 No Content but HTMX only works with 200 as far I can find
-	return renderWithStatusCode(ctx, templ.NopComponent, http.StatusNoContent)
+	return renderWithStatusCode(ctx, templ.NopComponent, http.StatusOK)
 }
 
 func renderWithStatusCode(ctx echo.Context, comp templ.Component, statusCode int) error {

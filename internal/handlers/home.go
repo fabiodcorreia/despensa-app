@@ -13,5 +13,15 @@ func NewHome() *HomeHandler {
 }
 
 func (h *HomeHandler) View(ctx echo.Context) error {
-	return render(ctx, pages.ViewHome("HOME VIEW"))
+	// sess, _ := session.Get("session", ctx)
+	// Need to check the error in case session is not there
+	// sess.Options = &sessions.Options{
+	// 	Path:     "/",
+	// 	MaxAge:   86400 * 7, // 1 week
+	// 	HttpOnly: true,
+	// 	Secure:   true,
+	// }
+	// sess.Values["foo"] = "bar"
+	// sess.Save(ctx.Request(), ctx.Response())
+	return render(ctx, pages.ViewHome("Despensa"))
 }
