@@ -3,7 +3,7 @@ module github.com/fabiodcorreia/despensa-app
 go 1.22.0
 
 require (
-	github.com/a-h/templ v0.2.590
+	github.com/a-h/templ v0.2.598
 	github.com/golang-migrate/migrate/v4 v4.17.0
 	github.com/gorilla/sessions v1.2.2
 	github.com/labstack/echo-contrib v0.15.0
