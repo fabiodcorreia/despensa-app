@@ -6,14 +6,13 @@ import (
 	"github.com/fabiodcorreia/despensa-app/internal/handlers"
 )
 
-type Home struct {
+type HomeRoute struct {
 	handler handlers.HomeHandler
 }
 
-var _ Routes = (*Home)(nil)
+var _ Routes = (*HomeRoute)(nil)
 
-// Make this interface?
-func (r *Home) Routes() []Route {
+func (r HomeRoute) Routes() []Route {
 	return []Route{
 		NewRoute(http.MethodGet, "/", r.handler.View),
 	}
