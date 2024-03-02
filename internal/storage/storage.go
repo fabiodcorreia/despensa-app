@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 
@@ -12,18 +14,25 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+var ErrNotFound = errors.New("record not found")
+
 type Store struct {
 	file string
+	ctx  context.Context
 	db   *sql.DB
 }
 
-func NewStore(databaseFile string) *Store {
+var _ LocationStore = (*Store)(nil)
+var _ ItemStore = (*Store)(nil)
+
+func NewStore(ctx context.Context, databaseFile string) *Store {
 	return &Store{
 		file: databaseFile,
+		ctx:  ctx,
 	}
 }
 
-func NewStoreWithMigrations(databaseFile string, migrations fs.FS) (*Store, error) {
+func NewStoreWithMigrations(ctx context.Context, databaseFile string, migrations fs.FS) (*Store, error) {
 	d, err := iofs.New(migrations, "database/migration")
 	if err != nil {
 		return nil, fmt.Errorf("store with migrations - loading migration files: %w", err)
@@ -40,7 +49,7 @@ func NewStoreWithMigrations(databaseFile string, migrations fs.FS) (*Store, erro
 			return nil, fmt.Errorf("store with migrations - running migrations: %w", err)
 		}
 	}
-	return NewStore(databaseFile), nil
+	return NewStore(ctx, databaseFile), nil
 }
 
 func (s *Store) Connect() error {
@@ -49,7 +58,7 @@ func (s *Store) Connect() error {
 		return fmt.Errorf("store connection fail: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		return fmt.Errorf("store connection check fail: %w", err)
 	}
 	s.db = db

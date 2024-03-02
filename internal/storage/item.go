@@ -7,92 +7,103 @@ import (
 	"github.com/fabiodcorreia/despensa-app/internal/models"
 )
 
-func (s *Store) GetItemById(id string) (models.Item, error) {
-	var item models.Item
+type ItemStore interface {
+	GetItemByID(id string) (models.Item, error)
+	AddItem(item models.Item) error
+	GetAllItems() ([]models.Item, error)
+	AddItemStored(item models.Item) error
+}
 
-	row := s.db.QueryRow("SELECT id, name FROM item WHERE id = ?", id)
-	if err := row.Scan(&item.Id, &item.Name); err != nil {
+//
+
+const queryGetItemByID = `
+  SELECT i.id AS id, i.name AS name, s.quantity AS quantity, s.locationId AS locationId 
+  FROM item AS i LEFT JOIN itemStored AS s ON i.id = s.itemId 
+  WHERE i.id = ?
+`
+const queryAddItem = `
+  INSERT INTO item (id, name) VALUES (?, ?)
+`
+
+const queryAddItemStored = `
+  INSERT INTO itemStored (itemId, locationId, quantity) VALUES (?, ?, ?)
+`
+
+func (s *Store) GetItemByID(id string) (models.Item, error) {
+	var item models.Item
+	stmt, err := s.db.Prepare(queryGetItemByID)
+	if err != nil {
+		return item, fmt.Errorf("store get item by id statement: %w", err)
+	}
+	defer stmt.Close()
+
+	row := stmt.QueryRowContext(s.ctx, id)
+	if err = row.Scan(&item.ID, &item.Name, &item.Quantity, &item.LocationID); err != nil {
 		if err == sql.ErrNoRows {
-			return item, fmt.Errorf("get item by id: item not found for id %s", id)
+			return item, ErrNotFound
 		}
-		return item, fmt.Errorf("get item by id: %v", err)
+		return item, fmt.Errorf("store get item by id query: %v", err)
 	}
 
 	return item, nil
 }
 
+const queryGetAllItems = `
+  SELECT i.id AS id, i.name AS name, s.quantity AS quantity, s.locationId AS locationId 
+  FROM item AS i LEFT JOIN itemStored AS s ON i.id = s.itemId 
+`
+
 func (s *Store) GetAllItems() ([]models.Item, error) {
-	var items []models.Item
-	rows, err := s.db.Query("SELECT id, name FROM item ORDER BY name")
+	stmt, err := s.db.Prepare(queryGetAllItems)
 	if err != nil {
-		return nil, fmt.Errorf("get all items: %v", err)
+		return nil, fmt.Errorf("store get all items statement: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(s.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("store get all items query: %w", err)
 	}
 	defer rows.Close()
+
+	items := make([]models.Item, 0)
 	for rows.Next() {
 		var item models.Item
-		if err := rows.Scan(&item.Id, &item.Name); err != nil {
-			return nil, fmt.Errorf("get all items: %v", err)
+		if err = rows.Scan(&item.ID, &item.Name, &item.Quantity, &item.LocationID); err != nil {
+			return nil, fmt.Errorf("store get all items scan: %w", err)
 		}
 		items = append(items, item)
 	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get all items: %v", err)
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("store get all items rows: %w", err)
 	}
-
 	return items, nil
 }
 
-func (s *Store) CreateItem(item models.Item) error {
-	result, err := s.db.Exec("INSERT INTO item VALUES (?,?)", item.Id, item.Name)
+func (s *Store) AddItem(item models.Item) error {
+	stmt, err := s.db.Prepare(queryAddItem)
 	if err != nil {
-		return fmt.Errorf("create item: %v", err)
+		return fmt.Errorf("store add item statement: %w", err)
 	}
+	defer stmt.Close()
 
-	count, err := result.RowsAffected()
+	_, err = stmt.ExecContext(s.ctx, item.ID, item.Name)
 	if err != nil {
-		return fmt.Errorf("create item: %v", err)
+		return fmt.Errorf("store add item exec: %w", err)
 	}
-
-	if count != 1 {
-		return fmt.Errorf("create item: affected %d rows instead of 1", count)
-	}
-
 	return nil
 }
 
-func (s *Store) UpdateItem(item models.Item) error {
-	result, err := s.db.Exec("UPDATE item SET name = ? WHERE id = ?", item.Name, item.Id)
+func (s *Store) AddItemStored(item models.Item) error {
+	stmt, err := s.db.Prepare(queryAddItemStored)
 	if err != nil {
-		return fmt.Errorf("update item: %v", err)
+		return fmt.Errorf("store add item stored statement: %w", err)
 	}
+	defer stmt.Close()
 
-	count, err := result.RowsAffected()
+	_, err = stmt.ExecContext(s.ctx, item.ID, item.LocationID, item.Quantity)
 	if err != nil {
-		return fmt.Errorf("update item: %v", err)
+		return fmt.Errorf("store add item stored exec: %w", err)
 	}
-
-	if count != 1 {
-		return fmt.Errorf("update item: affected %d rows instead of 1", count)
-	}
-
-	return nil
-}
-
-func (s *Store) DeleteItem(id string) error {
-	result, err := s.db.Exec("DELETE item WHERE id = ?", id)
-	if err != nil {
-		return fmt.Errorf("delete item: %v", err)
-	}
-
-	count, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("delete item: %v", err)
-	}
-
-	if count != 1 {
-		return fmt.Errorf("delete item: affected %d rows instead of 1", count)
-	}
-
 	return nil
 }
