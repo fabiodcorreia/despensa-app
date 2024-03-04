@@ -36,7 +36,7 @@ func main() {
 	slog.Info("App exited with success")
 }
 
-func run() error {
+func run() (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -53,7 +53,13 @@ func run() error {
 	if err = store.Connect(); err != nil {
 		return err
 	}
-	defer store.Disconnect()
+
+	defer func() {
+		if disErr := store.Disconnect(); disErr != nil && err == nil {
+			err = disErr
+		}
+	}()
+
 	slog.Info("Store connected", "database", server.GetDatabaseFile())
 
 	s := server.NewServer(

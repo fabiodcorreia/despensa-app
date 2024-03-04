@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/fabiodcorreia/despensa-app/internal/models"
-	"github.com/fabiodcorreia/despensa-app/internal/services"
 	"github.com/fabiodcorreia/despensa-app/internal/storage"
 	"github.com/fabiodcorreia/despensa-app/test/mocks"
 	"go.uber.org/mock/gomock"
@@ -16,7 +15,7 @@ func TestAddLocation(t *testing.T) {
 	defer c.Finish()
 
 	store := mocks.NewMockLocationStore(c)
-	service := services.NewLocationService(store)
+	service := NewLocationService(store)
 
 	tests := []struct {
 		name            string
@@ -40,7 +39,7 @@ func TestAddLocation(t *testing.T) {
 		{
 			name:            "Returns error if location already exists",
 			serviceInput:    models.NewLocationWithID("2", "Congelador - Gaveta 2"),
-			serviceErr:      services.ErrLocationExists,
+			serviceErr:      ErrLocationExists,
 			serviceErrCheck: true,
 			mockErr:         nil,
 			mockDepOutput:   models.NewLocationWithID("2", "Congelador - Gaveta 2"),
@@ -108,7 +107,7 @@ func TestGetLocation(t *testing.T) {
 	defer c.Finish()
 
 	store := mocks.NewMockLocationStore(c)
-	service := services.NewLocationService(store)
+	service := NewLocationService(store)
 
 	tests := []struct {
 		name        string
@@ -129,7 +128,7 @@ func TestGetLocation(t *testing.T) {
 			name:        "Returns ErrLocationNotFound when id not found in store",
 			input:       "not-found-id",
 			output:      models.Location{},
-			expectedErr: services.ErrLocationNotFound,
+			expectedErr: ErrLocationNotFound,
 			specificErr: true,
 			storeErr:    storage.ErrNotFound,
 		},
@@ -137,7 +136,7 @@ func TestGetLocation(t *testing.T) {
 			name:        "Returns ErrLocationNotFound when id is empty",
 			input:       "",
 			output:      models.Location{},
-			expectedErr: services.ErrLocationNotFound,
+			expectedErr: ErrLocationNotFound,
 			specificErr: true,
 			storeErr:    storage.ErrNotFound,
 		},

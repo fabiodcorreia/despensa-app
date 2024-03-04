@@ -28,13 +28,16 @@ const queryGetAllLocations = `
 // Returns storage.ErrNotFound if location not found.
 //
 // Returns an error if the query fails for other reasons.
-func (s *Store) GetLocationByID(id string) (models.Location, error) {
-	var location models.Location
+func (s *Store) GetLocationByID(id string) (location models.Location, err error) {
 	stmt, err := s.db.Prepare(queryGetLocationByID)
 	if err != nil {
 		return location, fmt.Errorf("store get location by id statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	row := stmt.QueryRowContext(s.ctx, id)
 	if err = row.Scan(&location.ID, &location.Name); err != nil {
@@ -50,20 +53,28 @@ func (s *Store) GetLocationByID(id string) (models.Location, error) {
 // GetAllLocations returns all locations from the database
 //
 // Returns an error if the query fails for other reasons.
-func (s *Store) GetAllLocations() ([]models.Location, error) {
+func (s *Store) GetAllLocations() (locations []models.Location, err error) {
 	stmt, err := s.db.Prepare(queryGetAllLocations)
 	if err != nil {
 		return nil, fmt.Errorf("store get all locations statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	rows, err := stmt.QueryContext(s.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("store get all locations query: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
-	locations := make([]models.Location, 0)
+	// locations := make([]models.Location, 0)
 	for rows.Next() {
 		var location models.Location
 		if err = rows.Scan(&location.ID, &location.Name); err != nil {
@@ -80,12 +91,16 @@ func (s *Store) GetAllLocations() ([]models.Location, error) {
 // AddLocation adds a new location to the database
 //
 // Returns an error if the query fails for other reasons.
-func (s *Store) AddLocation(loc models.Location) error {
+func (s *Store) AddLocation(loc models.Location) (err error) {
 	stmt, err := s.db.Prepare(queryAddLocation)
 	if err != nil {
 		return fmt.Errorf("store add location statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	_, err = stmt.ExecContext(s.ctx, loc.ID, loc.Name)
 	if err != nil {

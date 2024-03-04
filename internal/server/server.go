@@ -55,7 +55,7 @@ func (s *Server) AddRoutes(routes routes.Routes) {
 func (s *Server) Start(bindAddr string) {
 	if err := s.engine.Start(bindAddr); err != http.ErrServerClosed {
 		// s.Log().Errorf("server start : %v", err)
-		slog.Error("Server starting", err)
+		slog.Error("Server starting with", "error", err)
 		s.stopCtx() // If error on start call stop and exit
 	}
 }

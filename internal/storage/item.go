@@ -29,13 +29,16 @@ const queryAddItemStored = `
   INSERT INTO itemStored (itemId, locationId, quantity) VALUES (?, ?, ?)
 `
 
-func (s *Store) GetItemByID(id string) (models.Item, error) {
-	var item models.Item
+func (s *Store) GetItemByID(id string) (item models.Item, err error) {
 	stmt, err := s.db.Prepare(queryGetItemByID)
 	if err != nil {
 		return item, fmt.Errorf("store get item by id statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	row := stmt.QueryRowContext(s.ctx, id)
 	if err = row.Scan(&item.ID, &item.Name, &item.Quantity, &item.LocationID); err != nil {
@@ -53,20 +56,27 @@ const queryGetAllItems = `
   FROM item AS i LEFT JOIN itemStored AS s ON i.id = s.itemId 
 `
 
-func (s *Store) GetAllItems() ([]models.Item, error) {
+func (s *Store) GetAllItems() (items []models.Item, err error) {
 	stmt, err := s.db.Prepare(queryGetAllItems)
 	if err != nil {
 		return nil, fmt.Errorf("store get all items statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	rows, err := stmt.QueryContext(s.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("store get all items query: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
-	items := make([]models.Item, 0)
 	for rows.Next() {
 		var item models.Item
 		if err = rows.Scan(&item.ID, &item.Name, &item.Quantity, &item.LocationID); err != nil {
@@ -80,12 +90,16 @@ func (s *Store) GetAllItems() ([]models.Item, error) {
 	return items, nil
 }
 
-func (s *Store) AddItem(item models.Item) error {
+func (s *Store) AddItem(item models.Item) (err error) {
 	stmt, err := s.db.Prepare(queryAddItem)
 	if err != nil {
 		return fmt.Errorf("store add item statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	_, err = stmt.ExecContext(s.ctx, item.ID, item.Name)
 	if err != nil {
@@ -94,12 +108,16 @@ func (s *Store) AddItem(item models.Item) error {
 	return nil
 }
 
-func (s *Store) AddItemStored(item models.Item) error {
+func (s *Store) AddItemStored(item models.Item) (err error) {
 	stmt, err := s.db.Prepare(queryAddItemStored)
 	if err != nil {
 		return fmt.Errorf("store add item stored statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		if closeErr := stmt.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	_, err = stmt.ExecContext(s.ctx, item.ID, item.LocationID, item.Quantity)
 	if err != nil {
