@@ -6,6 +6,7 @@ import (
 
 	"github.com/fabiodcorreia/despensa-app/internal/models"
 	"github.com/fabiodcorreia/despensa-app/internal/services"
+	"github.com/fabiodcorreia/despensa-app/internal/views/pages"
 	"github.com/labstack/echo/v4"
 )
 
@@ -36,8 +37,7 @@ func (h LocationHandler) List(ctx echo.Context) error {
 	if err != nil {
 		return err
 	}
-	//TODO: Render Component
-	return ctx.JSON(http.StatusOK, locations)
+	return render(ctx, pages.ViewLocations("Despensa", locations))
 }
 
 func (h LocationHandler) Add(ctx echo.Context) error {
