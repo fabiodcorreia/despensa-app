@@ -25,13 +25,53 @@ help:
 
 # #################### BUILD #################### #
 
+.PHONY: docker/tools
+docker/tools:
+	go install github.com/a-h/templ/cmd/templ@latest
+	go install go.uber.org/mock/mockgen@latest
+	go install golang.org/x/tools/cmd/deadcode@latest
+	go install github.com/boyter/dcd@latest
+	go install github.com/alexkohler/prealloc@latest
+	go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
+	go install github.com/jgautheron/goconst/cmd/goconst@latest
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/kisielk/errcheck@latest
+
+
+.PHONY: docker/node
+docker/node: public/favicon/docker public/css/style.min.css public/js/htmx.min.js
+
+.PHONY: docker/go
+docker/go: docker/tools tidy audit
+	templ generate -path=$(SRC_DIR)/internal/views
+	go build -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X 'main.version=1.0.0' -X 'main.name=$(PROJECT_NAME)' -w -s" ${SRC_DIR} 
+
+.PHONY: docker/image
+docker/image:
+	docker build -t $(BINARY_NAME) .
+
+.PHONY: docker/run
+docker/run:
+	docker run -v /tmp/despensa_data:/home/nonroot/data -p 8080:8080 ${BINARY_NAME}
+
+.PHONY: public/favicon/docker
+public/favicon/docker: public/favicon
+	@sed -i 's/"name": ""/"name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
+	@sed -i 's/"short-name": ""/"ahort-name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
+
+
+.PHONY: public/favicon/mac
+public/favicon/mac: public/favicon
+	@sed -i '' 's/"name": ""/"name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
+	@sed -i '' 's/"short-name": ""/"ahort-name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
+
 public/favicon: assets/favicon
 	mkdir -p $(PUBLIC_DIR)/favicon
 	cp -f $(ASSETS_DIR)/favicon/* $(PUBLIC_DIR)/favicon
 	mv $(PUBLIC_DIR)/favicon/favicon.ico $(PUBLIC_DIR)/favicon.ico
-	@sed -i '' 's/"name": ""/"name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
-	@sed -i '' 's/"short-name": ""/"ahort-name": "$(PROJECT_NAME)"/g' $(PUBLIC_DIR)/favicon/site.webmanifest 
 
+	
 #  create public/js folder if not exists
 public/js:
 	mkdir -p $(PUBLIC_DIR)/js
@@ -89,27 +129,16 @@ dev/update:
 
 ## dev/tools: install tools required to build the project
 .PHONY: dev/tools
-dev/tools:
-	go install golang.org/x/tools/cmd/deadcode@latest
-	go install github.com/a-h/templ/cmd/templ@latest
+dev/tools: docker/tools
 	go install github.com/cosmtrek/air@latest
-	go install github.com/boyter/dcd@latest
-	go install github.com/alexkohler/prealloc@latest
-	go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
-	go install github.com/jgautheron/goconst/cmd/goconst@latest
-	go install honnef.co/go/tools/cmd/staticcheck@latest
-	go install golang.org/x/vuln/cmd/govulncheck@latest
-	go install github.com/kisielk/errcheck@latest
-	go install go.uber.org/mock/mockgen@latest
 	go install -tags 'sqlite' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
-
 
 
 
 ## release/build: build in release mode a single binary
 .PHONY: release/build
-release/build: public/js/htmx.min.js public/css/style.min.css public/favicon tidy audit
+# release/build: public/js/htmx.min.js public/css/style.min.css public/favicon tidy audit
+release/build: tidy audit
 	templ generate -path=$(SRC_DIR)/internal/views
 	go build -o "${BIN_DIR}/${BINARY_NAME}" -ldflags="-X 'main.version=1.0.0' -X 'main.name=$(PROJECT_NAME)' -w -s" ${SRC_DIR} 
 
@@ -153,7 +182,6 @@ audit:
 	govulncheck ./...
 	go test -race -vet=off ./...
 
-
 .PHONY: test
 test: test/mocks
 	go test -v -race ./...
@@ -166,6 +194,7 @@ test/cover: test/mocks
 
 ## test/mocks: generate mocks for testing
 test/mocks: internal/storage/location.go internal/storage/item.go
+	mkdir -p test/
 	mockgen -source=internal/storage/location.go -destination=test/mocks/location_store.go -package=mocks
 	mockgen -source=internal/storage/item.go -destination=test/mocks/item_store.go -package=mocks
 
